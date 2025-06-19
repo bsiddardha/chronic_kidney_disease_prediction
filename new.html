@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Lap Time Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.2/plotly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #E10600;
+            --secondary-color: #15151E;
+            --accent-color: #1E1E29;
+            --text-color: #FFFFFF;
+            --border-color: #2C2C34;
+            --hover-color: #FF1801;
+        }
+        
+        body {
+            font-family: 'Titillium Web', 'Segoe UI', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid var(--primary-color);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+        }
+        
+        .logo {
+            font-weight: bold;
+            font-size: 2.8rem;
+            color: var(--primary-color);
+        }
+        
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            background-color: var(--accent-color);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        select, button {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+        
+        select {
+            cursor: pointer;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .multi-select-container {
+            position: relative;
+        }
+        
+        .driver-select {
+            min-height: 100px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .driver-select option {
+            padding: 8px;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            grid-column: 1 / -1;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: var(--hover-color);
+        }
+        
+        #chart-container {
+            width: 100%;
+            height: 600px;
+            background-color: var(--accent-color);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .error {
+            background-color: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+        }
+        
+        .info {
+            background-color: rgba(0, 123, 255, 0.2);
+            border: 1px solid #007bff;
+        }
+        
+        .tyre-legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .tyre-type {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .tyre-circle {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .soft { background-color: #FF0000; }
+        .medium { background-color: #FFD700; }
+        .hard { background-color: #DDDDDD; }
+        .intermediate { background-color: #00FF00; }
+        .wet { background-color: #0000FF; }
+        .unknown { background-color: #888888; }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            #chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="logo">F1</span> Lap Time Analyzer</h1>
+        </header>
+        
+        <div class="control-panel">
+            <div class="form-group">
+                <label for="year-select">Year</label>
+                <select id="year-select">
+                    <option value="">Select Year</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="grandprix-select">Grand Prix</label>
+                <select id="grandprix-select" disabled>
+                    <option value="">Select Grand Prix</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="session-select">Session</label>
+                <select id="session-select" disabled>
+                    <option value="">Select Session</option>
+                    <option value="FP1">Practice 1</option>
+                    <option value="FP2">Practice 2</option>
+                    <option value="FP3">Practice 3</option>
+                    <option value="Q">Qualifying</option>
+                    <option value="R">Race</option>
+                </select>
+            </div>
+            
+            <div class="form-group multi-select-container">
+                <label for="driver-select">Drivers (hold Ctrl/Cmd to select multiple)</label>
+                <select id="driver-select" class="driver-select" multiple disabled>
+                    <option value="">Loading drivers...</option>
+                </select>
+            </div>
+            
+            <button id="visualize-btn" disabled>Generate Visualization</button>
+        </div>
+        
+        <div id="message-container"></div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading data...</p>
+        </div>
+        
+        <div class="tyre-legend">
+            <div class="tyre-type"><span class="tyre-circle soft"></span> Soft</div>
+            <div class="tyre-type"><span class="tyre-circle medium"></span> Medium</div>
+            <div class="tyre-type"><span class="tyre-circle hard"></span> Hard</div>
+            <div class="tyre-type"><span class="tyre-circle intermediate"></span> Intermediate</div>
+            <div class="tyre-type"><span class="tyre-circle wet"></span> Wet</div>
+            <div class="tyre-type"><span class="tyre-circle unknown"></span> Unknown</div>
+        </div>
+        
+        <div id="chart-container"></div>
+    </div>
+
+    <script>
+        // Constants
+        const CURRENT_YEAR = 2025;
+        const START_YEAR = 2018;
+        
+        // Driver team colors mapping
+        const driverColors = {
+            'VER': '#0600EF', 'PER': '#0600EF',   // Red Bull
+            'LEC': '#DC0000', 'SAI': '#DC0000',   // Ferrari
+            'HAM': '#00D2BE', 'RUS': '#00D2BE',   // Mercedes
+            'NOR': '#FF8700', 'PIA': '#FF8700',   // McLaren
+            'ALO': '#006F62', 'STR': '#006F62',   // Aston Martin
+            'OCO': '#005AFF', 'GAS': '#005AFF',   // Alpine
+            'TSU': '#2B4562', 'RIC': '#2B4562',   // RB / VCARB
+            'MAG': '#FFFFFF', 'HUL': '#FFFFFF',   // Haas
+            'BOT': '#900000', 'ZHO': '#900000',   // Alfa Romeo / Sauber
+            'ALB': '#005AFF', 'SAR': '#005AFF'    // Williams
+        };
+
+        // Tyre compound information
+        const tyreInfo = {
+            'SOFT': ['🔴 Soft', '#FF0000'],
+            'MEDIUM': ['🟡 Medium', '#FFD700'],
+            'HARD': ['⚪ Hard', '#DDDDDD'],
+            'INTERMEDIATE': ['🟢 Intermediate', '#00FF00'],
+            'WET': ['🔵 Wet', '#0000FF'],
+            'UNKNOWN': ['⚫ Unknown', '#888888']
+        };
+        
+        // Mock data for testing the interface
+        const mockEvents = {
+            2025: ['Bahrain', 'Saudi Arabia', 'Australia', 'Japan', 'China', 'Miami', 'Emilia Romagna', 'Monaco', 'Canada', 'Spain', 'Austria', 'Great Britain', 'Hungary', 'Belgium', 'Netherlands', 'Italy', 'Azerbaijan', 'Singapore', 'United States', 'Mexico', 'Brazil', 'Las Vegas', 'Qatar', 'Abu Dhabi'],
+            2024: ['Bahrain', 'Saudi Arabia', 'Australia', 'Japan', 'China', 'Miami', 'Emilia Romagna', 'Monaco', 'Canada', 'Spain', 'Austria', 'Great Britain', 'Hungary', 'Belgium', 'Netherlands', 'Italy', 'Azerbaijan', 'Singapore', 'United States', 'Mexico', 'Brazil', 'Las Vegas', 'Qatar', 'Abu Dhabi'],
+            2023: ['Bahrain', 'Saudi Arabia', 'Australia', 'Azerbaijan', 'Miami', 'Emilia Romagna', 'Monaco', 'Spain', 'Canada', 'Austria', 'Great Britain', 'Hungary', 'Belgium', 'Netherlands', 'Italy', 'Singapore', 'Japan', 'Qatar', 'United States', 'Mexico', 'Brazil', 'Las Vegas', 'Abu Dhabi'],
+            2022: ['Bahrain', 'Saudi Arabia', 'Australia', 'Emilia Romagna', 'Miami', 'Spain', 'Monaco', 'Azerbaijan', 'Canada', 'Great Britain', 'Austria', 'France', 'Hungary', 'Belgium', 'Netherlands', 'Italy', 'Singapore', 'Japan', 'United States', 'Mexico', 'Brazil', 'Abu Dhabi'],
+            2021: ['Bahrain', 'Emilia Romagna', 'Portugal', 'Spain', 'Monaco', 'Azerbaijan', 'France', 'Styria', 'Austria', 'Great Britain', 'Hungary', 'Belgium', 'Netherlands', 'Italy', 'Russia', 'Turkey', 'United States', 'Mexico', 'Brazil', 'Qatar', 'Saudi Arabia', 'Abu Dhabi'],
+            2020: ['Austria', 'Styria', 'Hungary', 'Great Britain', '70th Anniversary', 'Spain', 'Belgium', 'Italy', 'Tuscany', 'Russia', 'Eifel', 'Portugal', 'Emilia Romagna', 'Turkey', 'Bahrain', 'Sakhir', 'Abu Dhabi'],
+            2019: ['Australia', 'Bahrain', 'China', 'Azerbaijan', 'Spain', 'Monaco', 'Canada', 'France', 'Austria', 'Great Britain', 'Germany', 'Hungary', 'Belgium', 'Italy', 'Singapore', 'Russia', 'Japan', 'Mexico', 'United States', 'Brazil', 'Abu Dhabi'],
+            2018: ['Australia', 'Bahrain', 'China', 'Azerbaijan', 'Spain', 'Monaco', 'Canada', 'France', 'Austria', 'Great Britain', 'Germany', 'Hungary', 'Belgium', 'Italy', 'Singapore', 'Russia', 'Japan', 'United States', 'Mexico', 'Brazil', 'Abu Dhabi']
+        };
+        
+        // Mock drivers by year
+        const mockDriversByYear = {
+            2025: ['VER', 'PER', 'LEC', 'SAI', 'HAM', 'RUS', 'NOR', 'PIA', 'ALO', 'STR', 'OCO', 'GAS', 'TSU', 'RIC', 'MAG', 'HUL', 'BOT', 'ZHO', 'ALB', 'SAR'],
+            2024: ['VER', 'PER', 'LEC', 'SAI', 'HAM', 'RUS', 'NOR', 'PIA', 'ALO', 'STR', 'OCO', 'GAS', 'TSU', 'RIC', 'MAG', 'HUL', 'BOT', 'ZHO', 'ALB', 'SAR'],
+            2023: ['VER', 'PER', 'LEC', 'SAI', 'HAM', 'RUS', 'NOR', 'PIA', 'ALO', 'STR', 'OCO', 'GAS', 'TSU', 'DEV', 'MAG', 'HUL', 'BOT', 'ZHO', 'ALB', 'SAR'],
+            2022: ['VER', 'PER', 'LEC', 'SAI', 'HAM', 'RUS', 'NOR', 'RIC', 'ALO', 'OCO', 'GAS', 'TSU', 'VET', 'STR', 'MAG', 'MSC', 'BOT', 'ZHO', 'ALB', 'LAT'],
+            2021: ['VER', 'PER', 'LEC', 'SAI', 'HAM', 'BOT', 'NOR', 'RIC', 'ALO', 'OCO', 'GAS', 'TSU', 'VET', 'STR', 'RAI', 'GIO', 'MSC', 'MAZ', 'RUS', 'LAT'],
+            2020: ['HAM', 'BOT', 'VER', 'ALB', 'LEC', 'VET', 'PER', 'STR', 'RIC', 'OCO', 'SAI', 'NOR', 'KVY', 'GAS', 'RAI', 'GIO', 'GRO', 'MAG', 'RUS', 'LAT'],
+            2019: ['HAM', 'BOT', 'VER', 'ALB', 'LEC', 'VET', 'SAI', 'NOR', 'RAI', 'GIO', 'PER', 'STR', 'MAG', 'GRO', 'KVY', 'GAS', 'HUL', 'RIC', 'RUS', 'KUB'],
+            2018: ['HAM', 'BOT', 'VET', 'RAI', 'RIC', 'VER', 'HUL', 'SAI', 'LEC', 'ERI', 'PER', 'OCO', 'MAG', 'GRO', 'GAS', 'HAR', 'VAN', 'SIR', 'STR', 'MSC']
+        };
+
+        // Mock lap data (simplified for demonstration)
+        const generateMockLapData = (driver, laps) => {
+            const data = [];
+            let baseTime = 90 + Math.random() * 10; // Base lap time between 90-100 seconds
+            
+            for (let lap = 1; lap <= laps; lap++) {
+                // Add some variability to lap times
+                let variation = (Math.random() * 4) - 2; // -2 to 2 second variation
+                
+                // Slow down for pit stops approximately every 15-20 laps
+                if (lap % (15 + Math.floor(Math.random() * 5)) === 0) {
+                    variation += 20; // Pit stop adds ~20 seconds
+                }
+                
+                // Random tyre compound
+                const compounds = ['SOFT', 'MEDIUM', 'HARD'];
+                const compound = compounds[Math.floor(Math.random() * compounds.length)];
+                
+                data.push({
+                    lap: lap,
+                    time: baseTime + variation,
+                    compound: compound
+                });
+            }
+            
+            return data;
+        };
+
+        // DOM Elements
+        const yearSelect = document.getElementById('year-select');
+        const grandPrixSelect = document.getElementById('grandprix-select');
+        const sessionSelect = document.getElementById('session-select');
+        const driverSelect = document.getElementById('driver-select');
+        const visualizeBtn = document.getElementById('visualize-btn');
+        const loadingEl = document.getElementById('loading');
+        const messageContainer = document.getElementById('message-container');
+        const chartContainer = document.getElementById('chart-container');
+        
+        // Helper Functions
+        function showMessage(message, type = 'info') {
+            const msgEl = document.createElement('div');
+            msgEl.className = `message ${type}`;
+            msgEl.textContent = message;
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(msgEl);
+            
+            // Auto-clear after 5 seconds
+            setTimeout(() => {
+                if (messageContainer.contains(msgEl)) {
+                    messageContainer.removeChild(msgEl);
+                }
+            }, 5000);
+        }
+        
+        function showLoading() {
+            loadingEl.style.display = 'block';
+        }
+        
+        function hideLoading() {
+            loadingEl.style.display = 'none';
+        }
+        
+        function secondsToMinSec(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes}:${secs.toFixed(3).padStart(6, '0')}`;
+        }
+        
+        // Initialize Year Select
+        function initYears() {
+            for (let year = CURRENT_YEAR; year >= START_YEAR; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            }
+        }
+        
+        // Load Grand Prix options based on selected year
+        function loadGrandPrix(year) {
+            grandPrixSelect.innerHTML = '<option value="">Select Grand Prix</option>';
+            
+            // In a real implementation, you would fetch this data from the FastF1 API
+            const events = mockEvents[year] || [];
+            
+            events.forEach(event => {
+                const option = document.createElement('option');
+                option.value = event;
+                option.textContent = event;
+                grandPrixSelect.appendChild(option);
+            });
+            
+            grandPrixSelect.disabled = events.length === 0;
+            sessionSelect.disabled = true;
+            driverSelect.disabled = true;
+            visualizeBtn.disabled = true;
+        }
+        
+        // Load drivers based on selected year, grand prix, and session
+        function loadDrivers(year, grandPrix, session) {
+            driverSelect.innerHTML = '';
+            
+            // In a real implementation, you would fetch this data from the FastF1 API
+            const drivers = mockDriversByYear[year] || [];
+            
+            drivers.forEach(driver => {
+                const option = document.createElement('option');
+                option.value = driver;
+                option.textContent = driver;
+                driverSelect.appendChild(option);
+            });
+            
+            driverSelect.disabled = drivers.length === 0;
+            visualizeBtn.disabled = drivers.length === 0;
+        }
+        
+        // Create lap time visualization
+        function createVisualization(year, grandPrix, session, drivers) {
+            showLoading();
+            
+            // Simulate API delay
+            setTimeout(() => {
+                try {
+                    // Generate mock lap data for demonstration
+                    // In a real implementation, you would fetch this data from the FastF1 API
+                    const raceLength = (session === 'R') ? 50 : 20; // Race ~50 laps, other sessions ~20
+                    
+                    const scaleFactor = 1.5; // Same as in your original code
+                    let allScaledLapTimes = [];
+                    const traces = [];
+                    
+                    drivers.forEach(driver => {
+                        const lapData = generateMockLapData(driver, raceLength);
+                        
+                        if (lapData.length === 0) {
+                            showMessage(`No lap data for ${driver}. Skipping.`, 'error');
+                            return;
+                        }
+                        
+                        const lapNumbers = lapData.map(d => d.lap);
+                        const lapTimesRaw = lapData.map(d => d.time);
+                        const lapTimes = lapTimesRaw.map(t => t * scaleFactor);
+                        allScaledLapTimes = [...allScaledLapTimes, ...lapTimes];
+                        
+                        const compounds = lapData.map(d => d.compound);
+                        const markerColors = compounds.map(c => tyreInfo[c] ? tyreInfo[c][1] : tyreInfo['UNKNOWN'][1]);
+                        
+                        const colorLine = driverColors[driver] || '#CCCCCC';
+                        
+                        const hoverText = lapData.map((d, i) => {
+                            return `<b>${driver}</b><br>Lap: ${d.lap}<br>Time: ${secondsToMinSec(d.time)}<br>Tyre: ${tyreInfo[d.compound] ? tyreInfo[d.compound][0] : tyreInfo['UNKNOWN'][0]}`;
+                        });
+                        
+                        traces.push({
+                            x: lapNumbers,
+                            y: lapTimes,
+                            mode: 'lines+markers',
+                            name: driver,
+                            line: {
+                                color: colorLine,
+                                width: 2,
+                                shape: 'spline'
+                            },
+                            marker: {
+                                size: 8,
+                                color: markerColors,
+                                line: {
+                                    color: colorLine,
+                                    width: 2
+                                }
+                            },
+                            hoverinfo: 'text',
+                            hovertext: hoverText
+                        });
+                    });
+                    
+                    if (allScaledLapTimes.length === 0) {
+                        showMessage('No lap data available for any selected drivers.', 'error');
+                        hideLoading();
+                        return;
+                    }
+                    
+                    const minTime = Math.min(...allScaledLapTimes);
+                    const maxTime = Math.max(...allScaledLapTimes);
+                    const tickVals = Array.from({ length: Math.ceil((maxTime - minTime) / 10) + 1 }, (_, i) => Math.floor(minTime) + i * 10);
+                    
+                    const layout = {
+                        title: `${grandPrix} GP ${year} - ${getSessionFullName(session)} - Lap Time Comparison (Scaled for Clarity)`,
+                        xaxis: {
+                            title: 'Lap Number',
+                            showspikes: true,
+                            spikemode: 'across',
+                            spikecolor: 'white',
+                            spikesnap: 'cursor',
+                            showline: true,
+                            showgrid: true
+                        },
+                        yaxis: {
+                            title: 'Lap Time (min:sec)',
+                            showspikes: true,
+                            spikemode: 'across',
+                            spikecolor: 'white',
+                            spikesnap: 'cursor',
+                            showline: true,
+                            showgrid: true,
+                            tickvals: tickVals,
+                            ticktext: tickVals.map(t => secondsToMinSec(t / scaleFactor))
+                        },
+                        template: 'plotly_dark',
+                        hovermode: 'x unified',
+                        legend: {
+                            title: 'Drivers'
+                        },
+                        margin: {
+                            t: 60,
+                            b: 60,
+                            l: 60,
+                            r: 40
+                        },
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        plot_bgcolor: 'rgba(0,0,0,0.2)',
+                        font: {
+                            family: 'Segoe UI',
+                            size: 14,
+                            color: '#FFFFFF'
+                        }
+                    };
+                    
+                    Plotly.newPlot(chartContainer, traces, layout);
+                    hideLoading();
+                    showMessage(`Successfully generated lap time visualization for ${grandPrix} ${year} ${getSessionFullName(session)}`);
+                    
+                } catch (error) {
+                    hideLoading();
+                    showMessage(`Error generating visualization: ${error.message}`, 'error');
+                    console.error('Visualization error:', error);
+                }
+            }, 1500); // Simulate API delay
+        }
+        
+        function getSessionFullName(sessionCode) {
+            const sessions = {
+                'FP1': 'Practice 1',
+                'FP2': 'Practice 2',
+                'FP3': 'Practice 3',
+                'Q': 'Qualifying',
+                'R': 'Race'
+            };
+            return sessions[sessionCode] || sessionCode;
+        }
+        
+        // Event Listeners
+        yearSelect.addEventListener('change', () => {
+            const year = parseInt(yearSelect.value);
+            if (year) {
+                loadGrandPrix(year);
+                sessionSelect.disabled = true;
+                driverSelect.disabled = true;
+                visualizeBtn.disabled = true;
+            }
+        });
+        
+        grandPrixSelect.addEventListener('change', () => {
+            const year = parseInt(yearSelect.value);
+            const grandPrix = grandPrixSelect.value;
+            
+            if (year && grandPrix) {
+                sessionSelect.disabled = false;
+                driverSelect.disabled = true;
+                visualizeBtn.disabled = true;
+            }
+        });
+        
+        sessionSelect.addEventListener('change', () => {
+            const year = parseInt(yearSelect.value);
+            const grandPrix = grandPrixSelect.value;
+            const session = sessionSelect.value;
+            
+            if (year && grandPrix && session) {
+                loadDrivers(year, grandPrix, session);
+            }
+        });
+        
+        visualizeBtn.addEventListener('click', () => {
+            const year = parseInt(yearSelect.value);
+            const grandPrix = grandPrixSelect.value;
+            const session = sessionSelect.value;
+            const selectedDrivers = Array.from(driverSelect.selectedOptions).map(opt => opt.value);
+            
+            if (!year || !grandPrix || !session) {
+                showMessage('Please select year, Grand Prix, and session.', 'error');
+                return;
+            }
+            
+            if (selectedDrivers.length === 0) {
+                showMessage('Please select at least one driver.', 'error');
+                return;
+            }
+            
+            createVisualization(year, grandPrix, session, selectedDrivers);
+        });
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            initYears();
+        });
+    </script>
+</body>
+</html>

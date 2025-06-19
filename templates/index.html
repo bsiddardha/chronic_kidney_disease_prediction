@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kidney Disease Prediction System</title>
+    <script>
+        // Handle back button
+        window.onpageshow = function(event) {
+            if (event.persisted) {
+                // Page was loaded from browser cache (back button)
+                window.location.href = '/logout';
+            }
+        };
+        
+        // Prevent going back using pushState
+        window.history.pushState(null, null, window.location.href);
+        window.onpopstate = function() {
+            window.history.pushState(null, null, window.location.href);
+            window.location.href = '/logout';
+        };
+
+        // Add beforeunload event listener
+        window.addEventListener('beforeunload', function(e) {
+            // Cancel the event
+            e.preventDefault();
+            // Chrome requires returnValue to be set
+            e.returnValue = '';
+        });
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        :root {
+    --primary-color: #4a90e2;
+    --secondary-color: #f39c12;
+    --accent-color: #e74c3c;
+    --text-color: #333;
+    --bg-color: #f4f4f4;
+    --card-bg-color: #ffffff;
+}
+
+.dark-mode {
+    --primary-color: #64b5f6;
+    --secondary-color: #ffd54f;
+    --accent-color: #ff7043;
+    --text-color: #e0e0e0;
+    --bg-color: #121212;
+    --card-bg-color: #1e1e1e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    overflow-x: hidden;
+    padding-top: 80px;
+}
+
+.navbar {
+    background: var(--card-bg-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 0.5rem 0;
+    transition: all 0.3s ease;
+}
+
+.navbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.navbar-logo {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.navbar-logo:hover {
+    color: var(--secondary-color);
+}
+
+.navbar-menu {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.navbar-menu a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
+.navbar-menu a:hover {
+    color: var(--primary-color);
+    background-color: rgba(74, 144, 226, 0.1);
+}
+
+.hero {
+    height: calc(100vh - 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: linear-gradient(45deg, #3498db, #8e44ad);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80') no-repeat center center;
+    background-size: cover;
+    opacity: 0.2;
+    z-index: -1;
+}
+
+.hero-content {
+    max-width: 800px;
+    padding: 2rem;
+    animation: fadeInUp 1s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero h1 {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.hero p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.8rem 2rem;
+    background-color: var(--secondary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 50px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.btn:hover {
+    background-color: var(--accent-color);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+}
+
+.section {
+    padding: 5rem 0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.demo {
+    background-color: var(--card-bg-color);
+}
+
+.demo-content {
+    display: flex;
+    align-items: center;
+    gap: 4rem;
+}
+
+.demo-image {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.demo-image img {
+    width: 100%;
+    height: auto;
+    transition: transform 0.3s ease;
+}
+
+.demo-image:hover img {
+    transform: scale(1.05);
+}
+
+.demo-text {
+    flex: 1;
+}
+
+.demo-text h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+.demo-text p {
+    margin-bottom: 1rem;
+}
+
+.demo-text ul {
+    list-style-type: none;
+    margin-bottom: 1rem;
+}
+
+.demo-text ul li {
+    margin-bottom: 0.5rem;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.demo-text ul li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--secondary-color);
+}
+
+.form-container {
+    background-color: var(--card-bg-color);
+    border-radius: 10px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+    padding: 3rem;
+    margin-top: 2rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.form-group input,
+.form-group select {
+    padding: 0.8rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.error-message {
+    color: var(--accent-color);
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+}
+
+input[type="submit"] {
+    grid-column: 1 / -1;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+input[type="submit"]:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+}
+
+.navbar {
+    background: var(--card-bg-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-logo {
+    color: var(--primary-color);
+}
+
+.navbar-menu a {
+    color: var(--text-color);
+}
+
+.navbar-menu a:hover {
+    color: var(--primary-color);
+    background-color: rgba(74, 144, 226, 0.1);
+}
+
+.demo {
+    background-color: var(--card-bg-color);
+}
+
+.form-container {
+    background-color: var(--card-bg-color);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+}
+
+.form-group input,
+.form-group select {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-color: var(--text-color);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--primary-color);
+}
+
+input[type="submit"] {
+    background-color: var(--primary-color);
+    color: var(--card-bg-color);
+}
+
+input[type="submit"]:hover {
+    background-color: var(--secondary-color);
+}
+
+.dark-mode-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 56px;
+    height: 28px;
+    border-radius: 14px;
+    position: relative;
+    transition: background-color 0.3s ease;
+    background-color: #f0f0f0;
+    overflow: hidden;
+}
+
+.dark-mode .dark-mode-toggle {
+    background-color: #3a3a3a;
+}
+
+.toggle-track {
+
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+    box-sizing: border-box;
+}
+
+.toggle-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.dark-mode .toggle-icon {
+    color: green;
+}
+
+.toggle-icon-light {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toggle-icon-dark {
+    opacity: 0;
+    transform: translateX(-12px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.dark-mode .toggle-icon-light {
+    opacity: 0;
+    transform: translateX(12px);
+}
+
+.dark-mode .toggle-icon-dark {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color:;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.dark-mode .toggle-thumb {
+    transform: translateX(28px);
+
+}
+
+/* Adjust the navbar styles to accommodate the new toggle */
+.navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+/* Add this if you want to separate the toggle from other menu items */
+.dark-mode-toggle {
+    margin-left: 1rem;
+}
+
+.dark-mode-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.dark-mode-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode-toggle .sun {
+    display: none;
+}
+
+.dark-mode-toggle .moon {
+    display: inline;
+}
+
+.dark-mode .dark-mode-toggle .sun {
+    display: inline;
+}
+
+.dark-mode .dark-mode-toggle .moon {
+    display: none;
+}
+
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="#" class="navbar-logo">KidneyGuard</a>
+            <div class="navbar-menu" id="navbar-menu">
+                <a href="#home">Home</a>
+                <a href="#test">Take Test</a>
+                <a href="/contact">Contact</a>
+                <a href="/admin">Access Data</a>
+                <a href="/logout">Logout</a>
+                <button id="darkModeToggle" class="dark-mode-toggle" aria-label="Toggle dark mode">
+                    <div class="toggle-track">
+                       <div class="toggle-icon toggle-icon-light">
+                          🌙 
+                       </div>
+                       <div class="toggle-icon toggle-icon-dark">
+                        ☀️
+                       </div> 
+                   </div>
+                   <div class="toggle-thumb"></div>
+               </button>
+            </div>
+        </div>
+    </nav>
+
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1>Predict. Prevent. Protect.</h1>
+            <p>Take control of your kidney health with our advanced prediction system. Early detection can make all the difference.</p>
+            <a href="#test" class="btn">Start Your Assessment</a>
+        </div>
+    </section>
+
+    <section id="demo" class="section demo">
+        <div class="container">
+            <div class="demo-content">
+                <div class="demo-image">
+                    <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" alt="Medical Consultation">
+                </div>
+                <div class="demo-text">
+                    <h2>How It Works</h2>
+                    <p>Our user-friendly test is designed to gather essential information about your health. Here's what you need to know:</p>
+                    <ul>
+                        <li>Fill out all required fields carefully</li>
+                        <li>Use the measurement standards mentioned for each field</li>
+                        <li>Consult recent medical records or your healthcare provider if unsure</li>
+                    </ul>
+                    <p>Remember, this test is a screening tool and not a substitute for professional medical advice. Always consult with a healthcare professional for proper diagnosis and treatment.</p>
+                    <a href="#test" class="btn">Take the Test Now</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="test" class="section">
+        <div class="container">
+            <h2>Chronic Kidney Disease Prediction Test</h2>
+            <div class="form-container">
+                <form action="/predict" method="POST" id="predictionForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="sg">Specific Gravity (sg):</label>
+                            <input type="number" id="sg" name="sg" required step="0.001" min="1.000" max="1.050" placeholder="e.g., 1.020">
+                            <span class="error-message" id="sg-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="htn">Hypertension (htn):</label>
+                            <select id="htn" name="htn" required>
+                                <option value="">Select</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="hemo">Hemoglobin (hemo):</label>
+                            <input type="number" id="hemo" name="hemo" required step="0.1" min="0" max="20" placeholder="e.g., 14.5">
+                            <span class="error-message" id="hemo-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="dm">Diabetes Mellitus (dm):</label>
+                            <select id="dm" name="dm" required>
+                                <option value="">Select</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="al">Albumin (al):</label>
+                            <input type="number" id="al" name="al" required step="0.1" min="0" max="10" placeholder="e.g., 4.0">
+                            <span class="error-message" id="al-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="appet">Appetite (appet):</label>
+                            <select id="appet" name="appet" required>
+                                <option value="">Select</option>
+                                <option value="1">Good</option>
+                                <option value="0">Poor</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rc">Red Blood Cells Count (rc):</label>
+                            <input type="number" id="rc" name="rc" required step="0.1" min="0" max="10" placeholder="e.g., 4.5">
+                            <span class="error-message" id="rc-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="pc">Pus Cell (pc):</label>
+                            <select id="pc" name="pc" required>
+                                <option value="">Select</option>
+                                <option value="0">Normal</option>
+                                <option value="1">Abnormal</option>
+                            </select>
+                        </div>
+                        <input type="submit" value="Get Your Results">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        // Check for saved dark mode preference
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Set initial dark mode state
+        if (isDarkMode) {
+            body.classList.add('dark-mode');
+        }
+
+        // Toggle dark mode
+        darkModeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', body.classList.contains('dark-mode'));
+        });
+
+        // Form validation
+        const form = document.getElementById('predictionForm');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (validateForm()) {
+                form.submit();
+            }
+        });
+
+        function validateForm() {
+            let isValid = true;
+            const fields = [
+                { id: 'sg', min: 1.000, max: 1.050, step: 0.001 },
+                { id: 'hemo', min: 0, max: 20, step: 0.1 },
+                { id: 'al', min: 0, max: 10, step: 0.1 },
+                { id: 'rc', min: 0, max: 10, step: 0.1 }
+            ];
+
+            fields.forEach(field => {
+                const input = document.getElementById(field.id);
+                const error = document.getElementById(`${field.id}-error`);
+                const value = parseFloat(input.value);
+
+                if (isNaN(value) || value < field.min || value > field.max) {
+                    error.textContent = `Please enter a number between ${field.min} and ${field.max}.`;
+                    isValid = false;
+                } else {
+                    // Check if the value is within one step of a valid value
+                    const nearestStep = Math.round(value / field.step) * field.step;
+                    if (Math.abs(value - nearestStep) > field.step / 2) {
+                        error.textContent = `Please enter a number with step ${field.step}.`;
+                        isValid = false;
+                    } else {
+                        error.textContent = '';
+                        // Round to nearest step
+                        input.value = nearestStep.toFixed(field.step < 1 ? -Math.log10(field.step) : 0);
+                    }
+                }
+            });
+
+            return isValid;
+        }
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    });
+    </script>
+</body>
+</html>
